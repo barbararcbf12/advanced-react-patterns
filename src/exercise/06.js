@@ -29,6 +29,54 @@ function toggleReducer(state, {type, initialState}) {
   }
 }
 
+function useControlledSwitchWarning(
+  controlPropValue,
+  controlPropName,
+  componentName,
+) {
+  let isControlled = controlPropValue != null
+  let {current: wasControlled} = React.useRef(isControlled)
+  React.useEffect(() => {
+    warning(
+      !(isControlled && !wasControlled),
+      `\`${componentName}\` is changing from uncontrolled to be controlled. Reach UI components should not switch from uncontrolled to controlled (or vice versa). Decide between using a controlled or uncontrolled \`${componentName}\` for the lifetime of the component. Check the \`${controlPropName}\` prop.`,
+    )
+    warning(
+      !(!isControlled && wasControlled),
+      `\`${componentName}\` is changing from controlled to be uncontrolled. Reach UI components should not switch from controlled to uncontrolled (or vice versa). Decide between using a controlled or uncontrolled \`${componentName}\` for the lifetime of the component. Check the \`${controlPropName}\` prop.`,
+    )
+  }, [componentName, controlPropName, isControlled, wasControlled])
+}
+
+function useOnChangeReadOnlyWarning(
+  controlPropValue,
+  controlPropName,
+  componentName,
+  hasOnChange,
+  readOnly,
+  readOnlyProp,
+  initialValueProp,
+  onChangeProp,
+) {
+  let isControlled = controlPropValue != null
+  React.useEffect(() => {
+    warning(
+      !(!hasOnChange && isControlled && !readOnly),
+      'Failed prop type: You provided a `on` prop to a form field without an `onChange` handler. This will render a read-only field. If the field should be mutable use `defaultValue`. Otherwise, set either `onChange` or `readOnly`.',
+    )
+  }, [
+    controlPropValue,
+    controlPropName,
+    componentName,
+    hasOnChange,
+    readOnly,
+    readOnlyProp,
+    initialValueProp,
+    onChangeProp,
+    isControlled,
+  ])
+}
+
 function useToggle({
   initialOn = false,
   reducer = toggleReducer,
@@ -42,14 +90,25 @@ function useToggle({
   const onIsControlled = controlledOn != null
 
   const on = onIsControlled ? controlledOn : state.on
+
   const hasOnChange = !!onChange
 
-  React.useEffect(() => {
-    warning(
-      !(!hasOnChange && onIsControlled && !readOnly),
-      'Failed prop type: You provided a `on` prop to a form field without an `onChange` handler. This will render a read-only field. If the field should be mutable use `defaultValue`. Otherwise, set either `onChange` or `readOnly`.',
+  if (process.env.NODE_ENV !== 'production') {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    useControlledSwitchWarning(controlledOn, 'on', 'useToggle')
+
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    useOnChangeReadOnlyWarning(
+      controlledOn,
+      'on',
+      'useToggle',
+      hasOnChange,
+      readOnly,
+      'readOnly',
+      'initialOn',
+      'onChange',
     )
-  }, [hasOnChange, onIsControlled, readOnly])
+  }
 
   function dispatchWithOnChange(action) {
     if (!onIsControlled) {
@@ -116,7 +175,7 @@ function App() {
   return (
     <div>
       <div>
-        <Toggle on={bothOn} onChange={handleToggleChange} readOnly={false} />
+        <Toggle on={bothOn} onChange={handleToggleChange} readOnly={true} />
         <Toggle on={bothOn} onChange={handleToggleChange} />
       </div>
       {timesClicked > 4 ? (
